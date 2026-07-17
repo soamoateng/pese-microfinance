@@ -105,13 +105,14 @@ customerForm.addEventListener('submit', (e) => {
 });
 
 function renderCustomers() {
+function renderCustomers() {
     const list = document.getElementById('customer-list');
     if(customers.length === 0) {
         list.innerHTML = '<div class="empty-state">No customers yet. Click "Create New Customer" to start.</div>';
         return;
     }
     
-    list.innerHTML = customers.map((c, index) => `
+    list.innerHTML = customers.map((c) => `
         <div class="customer-card">
             <h3>${c.name}</h3>
             <div class="customer-info">
@@ -120,11 +121,37 @@ function renderCustomers() {
                 <p><strong>Location:</strong> ${c.location}</p>
                 <p class="balance">Balance: ₵${c.balance.toFixed(2)}</p>
             </div>
-            <button class="btn-edit" onclick="openCustomerModal(${index})">
-                <i class="fa-solid fa-pen-to-square"></i> Edit Customer
-            </button>
+            <div class="card-actions">
+                <button class="btn-edit" onclick="openCustomerModal(${customers.indexOf(c)})">
+                    <i class="fa-solid fa-pen-to-square"></i> Edit
+                </button>
+                <!-- Using accountNumber for a safer reference -->
+                <button class="btn-delete" onclick="handleDeleteCustomer('${c.accountNumber}')">
+                    <i class="fa-solid fa-trash"></i> Delete
+                </button>
+            </div>
         </div>
     `).join('');
+}
+
+// Add this new function
+function handleDeleteCustomer(accNum) {
+    const customer = customers.find(c => c.accountNumber === accNum);
+    if(!customer) return;
+    
+    if(confirm(`Are you sure you want to delete ${customer.name}?`)) {
+        // 1. Remove the customer
+        customers = customers.filter(c => c.accountNumber !== accNum);
+        
+        // 2. RECOMMENDED: Handle their transactions. 
+        // For now, we will just leave them as historical records.
+        // transactions = transactions.filter(t => t.accountNumber !== accNum);
+        
+        // 3. Save and refresh
+        saveData();
+        renderCustomers();
+        renderTransactions(); // Refresh transactions screen if you decided to remove them
+    }
 }
 
 // --- Transaction Logic ---
