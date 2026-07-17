@@ -1,9 +1,13 @@
+// ==========================================
 // State Management
+// ==========================================
 let customers = JSON.parse(localStorage.getItem('susu_customers')) || [];
 let transactions = JSON.parse(localStorage.getItem('susu_transactions')) || [];
 let editIndex = -1;
 
+// ==========================================
 // DOM Elements
+// ==========================================
 const screens = document.querySelectorAll('.screen');
 const navBtns = document.querySelectorAll('.nav-btn');
 const customerModal = document.getElementById('customer-modal');
@@ -12,31 +16,41 @@ const customerForm = document.getElementById('customer-form');
 const transactionForm = document.getElementById('transaction-form');
 const customerSelect = document.getElementById('transaction-customer');
 
-// --- Navigation Logic ---
+// ==========================================
+// Navigation Logic
+// ==========================================
 navBtns.forEach(btn => {
     btn.addEventListener('click', () => {
         const target = btn.dataset.target;
+        
+        // Switch screens
         screens.forEach(screen => screen.classList.remove('active'));
         document.getElementById(target).classList.add('active');
         
+        // Switch active button state
         navBtns.forEach(b => b.classList.remove('active'));
         btn.classList.add('active');
         
-        // Resize chart when analytics tab is opened
+        // Resize chart when analytics tab is opened to ensure it renders correctly
         if(target === 'analytics-screen' && window.txnChart) {
-            window.txnChart.resize();
+            setTimeout(() => {
+                window.txnChart.resize();
+            }, 100);
         }
     });
 });
 
-// --- Modal Logic ---
+// ==========================================
+// Modal Logic
+// ==========================================
 document.getElementById('add-customer-btn').addEventListener('click', () => {
     openCustomerModal();
 });
 
 document.getElementById('add-transaction-btn').addEventListener('click', () => {
-    populateCustomerDropdown();
-    openModal(transactionModal);
+    if(populateCustomerDropdown()) {
+        openModal(transactionModal);
+    }
 });
 
 document.querySelectorAll('.close-btn').forEach(btn => {
@@ -73,7 +87,9 @@ function openCustomerModal(index = -1) {
     openModal(customerModal);
 }
 
-// --- Customer Logic ---
+// ==========================================
+// Customer Logic
+// ==========================================
 customerForm.addEventListener('submit', (e) => {
     e.preventDefault();
     
@@ -82,7 +98,7 @@ customerForm.addEventListener('submit', (e) => {
     const location = document.getElementById('customer-location').value;
     const balance = parseFloat(document.getElementById('customer-balance').value);
     
-    // Generate Account Number if new
+    // Generate Account Number if new, otherwise keep existing
     const accNum = editIndex !== -1 ? customers[editIndex].accountNumber : 'SUS' + Date.now().toString().slice(-6);
     
     const customerData = {
@@ -111,7 +127,7 @@ function renderCustomers() {
         return;
     }
     
-    list.innerHTML = customers.map((c, index) => `
+    list.innerHTML = customers.map((c) => `
         <div class="customer-card">
             <h3>${c.name}</h3>
             <div class="customer-info">
@@ -120,17 +136,44 @@ function renderCustomers() {
                 <p><strong>Location:</strong> ${c.location}</p>
                 <p class="balance">Balance: ₵${c.balance.toFixed(2)}</p>
             </div>
-            <button class="btn-edit" onclick="openCustomerModal(${index})">
-                <i class="fa-solid fa-pen-to-square"></i> Edit Customer
-            </button>
+            <div class="card-actions">
+                <button class="btn-edit" onclick="openCustomerModal(${customers.indexOf(c)})">
+                    <i class="fa-solid fa-pen-to-square"></i> Edit
+                </button>
+                <button class="btn-delete" onclick="handleDeleteCustomer('${c.accountNumber}')">
+                    <i class="fa-solid fa-trash"></i> Delete
+                </button>
+            </div>
         </div>
     `).join('');
 }
 
-// --- Transaction Logic ---
+function handleDeleteCustomer(accNum) {
+    const customer = customers.find(c => c.accountNumber === accNum);
+    if(!customer) return;
+    
+    if(confirm(`Are you sure you want to delete ${customer.name}?`)) {
+        // 1. Remove the customer
+        customers = customers.filter(c => c.accountNumber !== accNum);
+        
+        // 2. OPTIONAL: Handle their historical transactions.
+        // For now, we will leave them as historical records so the transaction screen doesn't break.
+        // If you want to delete their transactions too, uncomment the line below:
+        // transactions = transactions.filter(t => t.accountNumber !== accNum);
+        
+        // 3. Save and refresh UI
+        saveData();
+        renderCustomers();
+        renderTransactions(); 
+    }
+}
+
+// ==========================================
+// Transaction Logic
+// ==========================================
 function populateCustomerDropdown() {
     if(customers.length === 0) {
-        alert("Please create a customer first.");
+        alert("Please create a customer first before adding transactions.");
         return false;
     }
     
@@ -171,10 +214,10 @@ transactionForm.addEventListener('submit', (e) => {
         customer.balance -= amount;
     }
     
-    // Generate Transaction ID
+    // Generate Unique Transaction ID
     const txnId = 'TXN' + Date.now().toString().slice(-8);
     
-    // Save Transaction
+    // Save Transaction Record
     transactions.push({
         id: txnId,
         accountNumber: customer.accountNumber,
@@ -215,27 +258,9 @@ function renderTransactions() {
     `).join('');
 }
 
-
-// Add this event listener once at the bottom of your script.js (near initialization)
-document.getElementById('customer-list').addEventListener('click', (e) => {
-    const btn = e.target.closest('button');
-    if(!btn) return;
-    
-    const action = btn.dataset.action;
-    const index = parseInt(btn.dataset.index);
-    
-    if(action === 'edit') {
-        openCustomerModal(index);
-    } else if(action === 'delete') {
-        if(confirm(`Are you sure you want to delete ${customers[index].name}?`)) {
-            customers.splice(index, 1);
-            saveData();
-            renderCustomers();
-        }
-    }
-});
-
-// --- Analytics Chart Logic ---
+// ==========================================
+// Analytics Chart Logic
+// ==========================================
 function initChart() {
     const ctx = document.getElementById('transactionsChart').getContext('2d');
     
@@ -276,14 +301,18 @@ function updateChart() {
     window.txnChart.update();
 }
 
-// --- Persistence ---
+// ==========================================
+// Persistence
+// ==========================================
 function saveData() {
     localStorage.setItem('susu_customers', JSON.stringify(customers));
     localStorage.setItem('susu_transactions', JSON.stringify(transactions));
     updateChart(); // Update chart whenever data changes
 }
 
-// --- Initialization ---
+// ==========================================
+// Initialization
+// ==========================================
 function init() {
     renderCustomers();
     renderTransactions();
